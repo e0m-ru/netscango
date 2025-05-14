@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"runtime"
 	"sync"
@@ -15,19 +17,40 @@ const (
 )
 
 var (
-	timeout      = 333 * time.Millisecond
-	workersCount = 1000
-	portsRange   = []int{80, 443, 515, 631}
+	portsRange        []int
+	workersCount      int
+	timeout           int
+	portString        string
+	err               error
+	defaultPortString = fmt.Sprintf("1-%d", MAX_PORT)
 )
 
 func main() {
-	firstIP, lastIP := choicIPrange()
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "\n")
+		flag.PrintDefaults()
+	}
+	flag.IntVar(&workersCount, "w", 1000, "Determines the number of workers")
+	flag.IntVar(&timeout, "t", 1000, "Determines the timeout for connection in milliseconds")
+	flag.StringVar(&portString, "p", defaultPortString, "Ports define like -p [8080 || 1-1024 || 1-80,443,21-22,4455]")
+	flag.Parse()
+	// Parse port range
+	portsRange, err = ParsePortRanges(portString)
+	if err != nil {
+		log.Fatalf("Error parsing ports: %v", err)
+	}
+	RUN()
+}
+
+func RUN() {
 	targetsChan := make(chan string)
 	resultsChan := make(chan string)
+	firstIP, lastIP := choiceIPrange()
 	var wg sync.WaitGroup
-	for i := range workersCount {
+	for range workersCount {
 		wg.Add(1)
-		go worker(i, &wg, targetsChan, resultsChan)
+		go worker(&wg, targetsChan, resultsChan)
 	}
 	go func(ip, lastIP net.IP) {
 		for ; !ip.Equal(lastIP); incIP(ip) {
@@ -48,7 +71,7 @@ func main() {
 	beep()
 }
 
-func choicIPrange() (net.IP, net.IP) {
+func choiceIPrange() (net.IP, net.IP) {
 	var networks = []*net.IPNet{}
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -73,7 +96,6 @@ func choicIPrange() (net.IP, net.IP) {
 	fmt.Print("Select network number: ")
 	var i int8
 	fmt.Scanf("%d\n", &i)
-	fmt.Printf("\rScan %v\n", networks[i-1])
 	return getIPRange(networks[i-1])
 }
 
@@ -103,23 +125,36 @@ func incIP(ip net.IP) {
 	}
 }
 
-func beep() {
-	fmt.Print("\a") // Пробуем стандартный BEL
-	// Fallback для Windows
-	if runtime.GOOS == "windows" {
-		exec.Command("powershell", "[console]::beep(800, 200)").Run()
-	}
-}
-
-func worker(i int, wg *sync.WaitGroup, tasks, results chan string) {
+func worker(wg *sync.WaitGroup, tasks, results chan string) {
 	defer wg.Done()
 	for task := range tasks {
-		conn, err := net.DialTimeout("tcp", task, timeout)
+		conn, err := net.DialTimeout("tcp", task, time.Millisecond*time.Duration(timeout))
 		if err != nil {
 			continue
 		} else {
 			results <- task
 		}
 		conn.Close()
+	}
+}
+
+func clearScreen() {
+	switch runtime.GOOS {
+	case "linux", "darwin":
+		fmt.Print("\033[H\033[2J")
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	default:
+		fmt.Println("Очистка экрана не поддерживается")
+	}
+}
+
+func beep() {
+	fmt.Print("\a") // Пробуем стандартный BEL
+	// Fallback для Windows
+	if runtime.GOOS == "windows" {
+		exec.Command("powershell", "[console]::beep(800, 200)").Run()
 	}
 }
