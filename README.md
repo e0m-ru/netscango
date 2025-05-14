@@ -1,16 +1,16 @@
 # **NetScanGo** 🌐  
 *A lightweight local network scanner written in Go*  
 
-![Go](https://img.shields.io/badge/Go-1.21+-blue?logo=go)  
+![Go](https://img.shields.io/badge/Go-1.23+-blue?logo=go)
 ![License](https://img.shields.io/badge/License-MIT-green)  
 
-**NetScanGo** is a CLI tool for discovering active hosts and open ports in a local network. It uses ICMP ping, ARP, and TCP scanning to map devices and services. Perfect for home labs, security checks, and network diagnostics.  
+**NetScanGo** is a CLI tool for discovering active hosts and open ports in a local network. It uses TCP scanning to map devices and services. Perfect for home labs, security checks, and network diagnostics.  
 
 ---
 
 ## **Features**  
 ✅ **Subnet detection** – Automatically finds your local IP range.  
-✅ **Fast host discovery** – Uses ICMP, TCP, and ARP (optional).  
+✅ **Fast host discovery** – Uses TCP.  
 ✅ **Port scanning** – Checks common/open ports on live hosts.  
 ✅ **Concurrent scanning** – Goroutines for speed.  
 ✅ **Simple & lightweight** – No bloat, just raw network scanning.  
@@ -36,21 +36,22 @@ go install github.com/e0m-ru/netscango@latest
 ## **Usage**  
 ### **Scan Local Network**  
 ```bash
-netscango scan --arp --ports 22,80,443
+netscango scan -p 22,80,443 -t 1000 -w 1000
 ```
 **Output:**  
 ```
-192.168.1.1   [ACTIVE]  Ports: 22 (SSH), 80 (HTTP)  
-192.168.1.5   [ACTIVE]  Ports: 443 (HTTPS)  
-192.168.1.102 [ACTIVE]  (ARP)  
+1) 192.168.1.4/24
+2) 172.26.128.1/20
+3) 172.17.64.1/20
+Select network number: 1
+192.168.1.1:80
+192.168.1.40:80
 ```
 
 ### **Flags**  
 | Flag       | Description                          | Example                     |
 |------------|--------------------------------------|-----------------------------|
-| `--icmp`   | Use ICMP ping (default)              | `--icmp`                    |
-| `--arp`    | Use ARP requests (requires sudo)     | `--arp`                     |
-| `--ports`  | TCP ports to scan (comma-separated)  | `--ports 80,443,8080`       |
+| `-p`       | TCP ports to scan (comma separated)  | `--ports 1-80,443,8080`       |
 | `--timeout`| Timeout per request (ms)             | `--timeout 500`             |
 
 ---
@@ -61,8 +62,6 @@ netscango scan --arp --ports 22,80,443
    - Calculates scan range (`192.168.1.1`–`192.168.1.254`).  
 
 2. **Host Discovery**  
-   - **ICMP**: Ping sweep (optional).  
-   - **ARP**: Reliable for LAN (needs admin rights).  
    - **TCP**: Checks if ports (e.g., 80/443) respond.  
 
 3. **Concurrency**  
@@ -71,6 +70,8 @@ netscango scan --arp --ports 22,80,443
 ---
 
 ## **Roadmap**  
+- [ ] **ICMP**: Ping sweep.  
+- [ ] **ARP**: Reliable for LAN (needs admin rights).  
 - [ ] MAC vendor lookup (OUI database).  
 - [ ] Export results to JSON/CSV.  
 - [ ] Detect OS via TTL/TCP fingerprints.  
